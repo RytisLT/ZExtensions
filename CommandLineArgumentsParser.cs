@@ -68,7 +68,7 @@ namespace ZExtensions
 
         public string GetHelpString()
         {
-            var assembly = Assembly.GetExecutingAssembly();
+            var assembly = Assembly.GetEntryAssembly();
             var result = new StringBuilder();
             var assemblyName = assembly.GetName();
             result.AppendLine(string.Format("{0} v{1}", assemblyName.Name, assemblyName.Version));
