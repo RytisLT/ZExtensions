@@ -56,7 +56,7 @@ namespace ZExtensions
 
         private void AddToTable(T item, FastListCluster<T> cluster)
         {
-            var hash = item.GetHashCode();
+            int hash = GetItemHash(item);            
             Dictionary<int, FastListCluster<T>> table = null;
             foreach (var t in this.lookupTables)
             {
@@ -135,7 +135,7 @@ namespace ZExtensions
         public bool Remove(T item)
         {
             bool removed = false;
-            var hash = item.GetHashCode();
+            int hash = GetItemHash(item);
             var table = this.GetItemTable(hash, item);
             if (table != null)
             {
@@ -262,7 +262,7 @@ namespace ZExtensions
 
         private void ReaddToTable(T item, FastListCluster<T> cluster)
         {
-            var hash = item.GetHashCode();
+            int hash = GetItemHash(item);
             var table = this.GetItemTable(hash, item);
             if (table != null)
             {
@@ -272,6 +272,16 @@ namespace ZExtensions
             {
                 this.AddToTable(item, cluster);
             }
+        }
+
+        private int GetItemHash(T item)
+        {
+            int hash = 0;
+            if (item != null)
+            {
+                hash = item.GetHashCode();
+            }
+            return hash;
         }
 
         private void SplitCluster(FastListCluster<T> cluster, int splitIndex, out FastListCluster<T> left, out FastListCluster<T> right)
@@ -367,7 +377,8 @@ namespace ZExtensions
         private FastListCluster<T> GetItemCluster(T item)
         {
             FastListCluster<T> cluster = null;
-            var hash = item.GetHashCode();
+            int hash = GetItemHash(item);
+        
             var table = this.GetItemTable(hash, item);
             if (table != null)
             {
@@ -494,8 +505,8 @@ namespace ZExtensions
 
             public int IndexOf(T item)
             {
-                int index = Array.IndexOf(storage, item);
-                return index;                
+                int index = Array.IndexOf(storage, item);                
+                return index;
             }
 
             public T this[int index]
@@ -543,7 +554,7 @@ namespace ZExtensions
             }
 
             public void CopyTo(T[] array, int arrayIndex)
-            {                
+            {
                 Array.Copy(storage, 0, array, arrayIndex, current);
             }
         }
