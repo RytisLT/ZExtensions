@@ -70,6 +70,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CommandLineArgumentsParser.cs" />
+    <Compile Include="FastList.cs" />
     <Compile Include="LambdaHelper.cs" />
     <Compile Include="ListExtensions.cs" />
     <Compile Include="MersenneTwister.cs" />
