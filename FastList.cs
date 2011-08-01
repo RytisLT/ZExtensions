@@ -472,14 +472,11 @@ namespace ZExtensions
             internal bool Remove(T item)
             {
                 bool removed = false;
-                for (int i = 0; i < current; i++)
+                int index = this.IndexOf(item);
+                if (index > -1)
                 {
-                    if (storage[i].Equals(item))
-                    {
-                        this.RemoveAt(i);
-                        removed = true;
-                        break;
-                    }
+                    this.RemoveAt(index);
+                    removed = true;
                 }
                 return removed;
             }
