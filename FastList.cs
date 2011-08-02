@@ -15,7 +15,8 @@ namespace ZExtensions
         private readonly List<Dictionary<int, Cluster>> lookupTables =
             new List<Dictionary<int, Cluster>>();
 
-        private readonly List<Rail> rails = new List<Rail>();        
+        private readonly List<Rail> rails = new List<Rail>();
+        private Rail lastUsedRail;
 
         public IEnumerator<T> GetEnumerator()
         {
@@ -145,14 +146,34 @@ namespace ZExtensions
                     {
                         var next = cluster.Next;
                         var previous = cluster.Previous;
-                        cluster.Previous = next;
-                        cluster.Next = previous;
+                        if (next != null)
+                        {
+                            next.Previous = previous;
+                        }
+                        if (previous != null)
+                        {
+                            previous.Next = next;
+                        }
+                        if (cluster == first)
+                        {
+                            first = next;
+                        }
+                        if (cluster == last)
+                        {
+                            previous.Next = null;
+                            last = previous;
+                        }
+                        //cluster.Previous = next;
+                        //cluster.Next = previous;
                     }
                     table.Remove(hash);
                     Interlocked.Decrement(ref count);
                 }
             }
             this.ClearCache();
+#if DEBUG
+            this.SanityCheck();
+#endif
             return removed;            
         }
 
@@ -244,7 +265,7 @@ namespace ZExtensions
                     }
                     first = left;
                 }
-                
+
                 for (int i = 0; i < left.ItemsCount; i++)
                 {
                     ReaddToTable(left[i], left);
@@ -253,10 +274,23 @@ namespace ZExtensions
                 {
                     ReaddToTable(right[i], right);
                 }
+#if DEBUG
+                this.SanityCheck();
+#endif
             }
             Interlocked.Increment(ref count);
             this.ClearCache();
         }
+
+#if DEBUG
+        private void SanityCheck()
+        {
+            if (first.Previous != null || last.Next != null || first.ItemsCount == 0 || last.ItemsCount == 0)
+            {
+                throw new InvalidOperationException();
+            }
+        }
+#endif
 
         private void ReaddToTable(T item, Cluster cluster)
         {
@@ -344,29 +378,47 @@ namespace ZExtensions
 
         private Cluster GetClusterOfIndex(int index, out int clusterStartIndex)
         {
-            var rail = this.GetFastestRail(index);
-            rail.MoveToIndex(index);
-            clusterStartIndex = rail.ClusterStartIndex;
-            return rail.Cluster;           
+            Cluster cluster;
+            if (index < first.ItemsCount)
+            {
+                clusterStartIndex = 0;
+                cluster = first;
+            }
+            else if (index >= count - last.ItemsCount)
+            {
+                clusterStartIndex = count - last.ItemsCount;
+                cluster = last;
+            }
+            else
+            {
+                var rail = this.GetFastestRail(index);
+                rail.MoveToIndex(index);
+                clusterStartIndex = rail.ClusterStartIndex;
+                cluster = rail.Cluster;
+            }            
+            return cluster;           
         }
 
         private Rail GetFastestRail(int index)
         {
             if (rails.Count == 0)
             {
-                int totalRails = (int) Math.Ceiling(((decimal) this.Count / 2000)) + 1;
-                int iterations = totalRails / 2;
-                for (int i = 0; i < iterations; i++)
+                int totalRails = (int) Math.Ceiling(((decimal) this.Count / 5000));
+                for (int i = 0; i < totalRails; i++)
                 {
-                    rails.Add(new Rail(first));
-                    rails.Add(new Rail(count - last.ItemsCount, last));
+                    rails.Add(new Rail(first, last, count));                    
                 }
+                lastUsedRail = rails[0];
             }
 
-            int minDistance = int.MaxValue;
-            Rail fastestRail = null;
+            int minDistance = Math.Abs(lastUsedRail.ClusterStartIndex - index);
+            Rail fastestRail = lastUsedRail;
             foreach (var rail in rails)
             {
+                if (minDistance < Cluster.StorageSize)
+                {
+                    break;
+                }
                 int distance = Math.Abs(rail.ClusterStartIndex - index);
                 if (distance < minDistance)
                 {
@@ -374,6 +426,7 @@ namespace ZExtensions
                     fastestRail = rail;
                 }
             }
+            lastUsedRail = fastestRail;
             return fastestRail;
         }
 
@@ -405,25 +458,36 @@ namespace ZExtensions
             return result;
         }
 
-        class Rail
+        private class Rail
         {
-            public Rail(Cluster first)
-            {
-                this.Cluster = first;
+            private readonly Cluster first;
+            private readonly Cluster last;
+            private readonly int totalCount;
+
+            public Rail(Cluster first, Cluster last, int totalCount): this(first, last, totalCount, first, 0)
+            {                
             }
 
-            public Rail(int clusterStartIndex, Cluster cluster)
+            public Rail(Cluster first, Cluster last, int totalCount, Cluster cluster, int clusterStartIndex)
             {
-                this.ClusterStartIndex = clusterStartIndex;
+                if (cluster == null)
+                {
+                    throw new NullReferenceException("cluster");
+                }
+                this.first = first;
+                this.last = last;
+                this.totalCount = totalCount;
                 this.Cluster = cluster;
+                this.ClusterStartIndex = clusterStartIndex;
             }
-
+            
             public int ClusterStartIndex { get; private set; }
             
             public Cluster Cluster { get; private set; }
             
             public void MoveToIndex(int index)
             {
+                this.MoveToClosestPosition(index);
                 int lastItemIndex = ClusterStartIndex + Cluster.ItemsCount - 1;
                 while (ClusterStartIndex > index && lastItemIndex > index)
                 {
@@ -437,6 +501,22 @@ namespace ZExtensions
                     ClusterStartIndex += Cluster.ItemsCount;
                     Cluster = Cluster.Next;
                     lastItemIndex = ClusterStartIndex + Cluster.ItemsCount - 1;
+                }
+            }
+
+            private void MoveToClosestPosition(int index)
+            {
+                int distance = Math.Abs(ClusterStartIndex - index);
+                int endDistance = totalCount - index;
+                if (index < distance && index < endDistance)
+                {
+                    Cluster = first;
+                    ClusterStartIndex = 0;
+                }
+                else if (endDistance < distance && endDistance < index)
+                {
+                    Cluster = last;
+                    ClusterStartIndex = totalCount - last.ItemsCount;
                 }
             }
         }
@@ -495,9 +575,9 @@ namespace ZExtensions
 
         private class Cluster
         {
-            private const int StorageSize = 20;
+            public const int StorageSize = 20;
             private readonly T[] storage = new T[StorageSize];
-            private int current = 0;
+            private int current;
 
             internal void Add(T item)
             {
