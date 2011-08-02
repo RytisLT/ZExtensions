@@ -415,7 +415,7 @@ namespace ZExtensions
             Rail fastestRail = lastUsedRail;
             foreach (var rail in rails)
             {
-                if (minDistance < Cluster.StorageSize)
+                if (minDistance <= Cluster.StorageSize * 2)
                 {
                     break;
                 }
