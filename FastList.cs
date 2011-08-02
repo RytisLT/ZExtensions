@@ -9,18 +9,17 @@ namespace ZExtensions
     {        
         private int count;
 
-        private FastListCluster<T> first;
-        private FastListCluster<T> last;
+        private Cluster first;
+        private Cluster last;
 
-        private readonly List<Dictionary<int, FastListCluster<T>>> lookupTables =
-            new List<Dictionary<int, FastListCluster<T>>>();
+        private readonly List<Dictionary<int, Cluster>> lookupTables =
+            new List<Dictionary<int, Cluster>>();
 
-        private FastListCluster<T> lastUsedCluster;
-        private int lastUsedClusterStartIndex;
+        private readonly List<Rail> rails = new List<Rail>();        
 
         public IEnumerator<T> GetEnumerator()
         {
-            var enumerator = new FastListEnumerator(first);
+            var enumerator = new Enumerator(first);
             return enumerator;
         }
 
@@ -33,7 +32,7 @@ namespace ZExtensions
         {
             if (first == null)
             {
-                first = new FastListCluster<T>();
+                first = new Cluster();
                 last = first;
             }
             if (!last.IsFull)
@@ -42,7 +41,7 @@ namespace ZExtensions
             }
             else
             {
-                var newLast = new FastListCluster<T>();
+                var newLast = new Cluster();
                 newLast.Previous = last;
                 newLast.Add(item);
                 last.Next= newLast;
@@ -54,10 +53,10 @@ namespace ZExtensions
         }
 
 
-        private void AddToTable(T item, FastListCluster<T> cluster)
+        private void AddToTable(T item, Cluster cluster)
         {
             int hash = GetItemHash(item);            
-            Dictionary<int, FastListCluster<T>> table = null;
+            Dictionary<int, Cluster> table = null;
             foreach (var t in this.lookupTables)
             {
                 if (!t.ContainsKey(hash))
@@ -68,7 +67,7 @@ namespace ZExtensions
             }
             if (table == null)
             {
-                table = new Dictionary<int, FastListCluster<T>>();
+                table = new Dictionary<int, Cluster>();
                 this.lookupTables.Add(table);
             }
             table.Add(hash, cluster);
@@ -95,8 +94,7 @@ namespace ZExtensions
 
         private void ClearCache()
         {
-            this.lastUsedCluster = first;
-            this.lastUsedClusterStartIndex = 0;
+            rails.Clear();         
         }
 
         public int IndexOf(object value)
@@ -222,8 +220,8 @@ namespace ZExtensions
             }
             else
             {
-                FastListCluster<T> left;
-                FastListCluster<T> right;
+                Cluster left;
+                Cluster right;
                 SplitCluster(cluster, clusterIndex, out left, out right);
                 left.Add(item);
                 var prev = cluster.Previous;
@@ -260,7 +258,7 @@ namespace ZExtensions
             this.ClearCache();
         }
 
-        private void ReaddToTable(T item, FastListCluster<T> cluster)
+        private void ReaddToTable(T item, Cluster cluster)
         {
             int hash = GetItemHash(item);
             var table = this.GetItemTable(hash, item);
@@ -284,10 +282,10 @@ namespace ZExtensions
             return hash;
         }
 
-        private void SplitCluster(FastListCluster<T> cluster, int splitIndex, out FastListCluster<T> left, out FastListCluster<T> right)
+        private void SplitCluster(Cluster cluster, int splitIndex, out Cluster left, out Cluster right)
         {
-            left = new FastListCluster<T>();
-            right = new FastListCluster<T>();
+            left = new Cluster();
+            right = new Cluster();
 
             for (int i = 0; i < splitIndex; i++)
             {
@@ -344,39 +342,44 @@ namespace ZExtensions
         }
 
 
-        private FastListCluster<T> GetClusterOfIndex(int index, out int clusterStartIndex)
+        private Cluster GetClusterOfIndex(int index, out int clusterStartIndex)
         {
-            clusterStartIndex = 0;            
-            int lastItemIndex = lastUsedClusterStartIndex + lastUsedCluster.ItemsCount - 1;
-
-            while (lastUsedClusterStartIndex > index && lastItemIndex > index)
-            {
-                lastUsedCluster = lastUsedCluster.Previous;
-                lastUsedClusterStartIndex = lastUsedClusterStartIndex - lastUsedCluster.ItemsCount;
-                lastItemIndex = lastUsedClusterStartIndex + lastUsedCluster.ItemsCount - 1;
-            }
-
-            while (index > lastItemIndex)
-            {
-                lastUsedClusterStartIndex += lastUsedCluster.ItemsCount;
-                lastUsedCluster = lastUsedCluster.Next;                
-                lastItemIndex = lastUsedClusterStartIndex + lastUsedCluster.ItemsCount - 1;
-            } 
-
-           
-            if (this.lastUsedClusterStartIndex < 0)
-            {
-                throw new ArgumentOutOfRangeException();
-            }
-
-            clusterStartIndex = lastUsedClusterStartIndex;
-            
-            return lastUsedCluster;
+            var rail = this.GetFastestRail(index);
+            rail.MoveToIndex(index);
+            clusterStartIndex = rail.ClusterStartIndex;
+            return rail.Cluster;           
         }
 
-        private FastListCluster<T> GetItemCluster(T item)
+        private Rail GetFastestRail(int index)
         {
-            FastListCluster<T> cluster = null;
+            if (rails.Count == 0)
+            {
+                int totalRails = (int) Math.Ceiling(((decimal) this.Count / 2000)) + 1;
+                int iterations = totalRails / 2;
+                for (int i = 0; i < iterations; i++)
+                {
+                    rails.Add(new Rail(first));
+                    rails.Add(new Rail(count - last.ItemsCount, last));
+                }
+            }
+
+            int minDistance = int.MaxValue;
+            Rail fastestRail = null;
+            foreach (var rail in rails)
+            {
+                int distance = Math.Abs(rail.ClusterStartIndex - index);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    fastestRail = rail;
+                }
+            }
+            return fastestRail;
+        }
+
+        private Cluster GetItemCluster(T item)
+        {
+            Cluster cluster = null;
             int hash = GetItemHash(item);
         
             var table = this.GetItemTable(hash, item);
@@ -388,9 +391,9 @@ namespace ZExtensions
             return cluster;
         }
 
-        private Dictionary<int, FastListCluster<T>> GetItemTable(int hash, T item)
+        private Dictionary<int, Cluster> GetItemTable(int hash, T item)
         {                        
-            Dictionary<int, FastListCluster<T>> result = null;
+            Dictionary<int, Cluster> result = null;
             foreach (var table in this.lookupTables)
             {
                 if (table.ContainsKey(hash) && table[hash].Contains(item))
@@ -401,14 +404,50 @@ namespace ZExtensions
             }
             return result;
         }
-        
-        private class FastListEnumerator : IEnumerator<T>
+
+        class Rail
         {
-            private FastListCluster<T> root;
-            private FastListCluster<T> current;
+            public Rail(Cluster first)
+            {
+                this.Cluster = first;
+            }
+
+            public Rail(int clusterStartIndex, Cluster cluster)
+            {
+                this.ClusterStartIndex = clusterStartIndex;
+                this.Cluster = cluster;
+            }
+
+            public int ClusterStartIndex { get; private set; }
+            
+            public Cluster Cluster { get; private set; }
+            
+            public void MoveToIndex(int index)
+            {
+                int lastItemIndex = ClusterStartIndex + Cluster.ItemsCount - 1;
+                while (ClusterStartIndex > index && lastItemIndex > index)
+                {
+                    Cluster = Cluster.Previous;
+                    ClusterStartIndex = ClusterStartIndex - Cluster.ItemsCount;
+                    lastItemIndex = ClusterStartIndex + Cluster.ItemsCount - 1;
+                }
+
+                while (index > lastItemIndex)
+                {
+                    ClusterStartIndex += Cluster.ItemsCount;
+                    Cluster = Cluster.Next;
+                    lastItemIndex = ClusterStartIndex + Cluster.ItemsCount - 1;
+                }
+            }
+        }
+
+        private class Enumerator : IEnumerator<T>
+        {
+            private Cluster root;
+            private Cluster current;
             private int currentIndex;
 
-            public FastListEnumerator(FastListCluster<T> root)
+            public Enumerator(Cluster root)
             {
                 this.root = root;
             }
@@ -454,7 +493,7 @@ namespace ZExtensions
             }
         }
 
-        private class FastListCluster<T>
+        private class Cluster
         {
             private const int StorageSize = 20;
             private readonly T[] storage = new T[StorageSize];
@@ -496,9 +535,9 @@ namespace ZExtensions
             }
 
 
-            public FastListCluster<T> Next { get; set; }
+            public Cluster Next { get; set; }
 
-            public FastListCluster<T> Previous { get; set; }
+            public Cluster Previous { get; set; }
 
             public int IndexOf(T item)
             {
