@@ -160,7 +160,10 @@ namespace ZExtensions
                         }
                         if (cluster == last)
                         {
-                            previous.Next = null;
+                            if (previous != null)
+                            {
+                                previous.Next = null;
+                            }
                             last = previous;
                         }
                         //cluster.Previous = next;
@@ -285,7 +288,8 @@ namespace ZExtensions
 #if DEBUG
         private void SanityCheck()
         {
-            if (first.Previous != null || last.Next != null || first.ItemsCount == 0 || last.ItemsCount == 0)
+            if (first != null && (first.Previous != null || last.Next != null || first.ItemsCount == 0) || 
+                last != null && (last.ItemsCount == 0 || last.Next != null))
             {
                 throw new InvalidOperationException();
             }
