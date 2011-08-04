@@ -138,7 +138,7 @@ namespace ZExtensions
             return (int)(this.NextDouble() * maxValue);
         }
 
-        public int Next(int minValue, int maxValue)
+        public new int Next(int minValue, int maxValue)
         {
             if (maxValue < minValue)
             {
