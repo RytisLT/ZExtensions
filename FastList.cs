@@ -97,7 +97,8 @@ namespace ZExtensions
 
         private void ClearCache()
         {
-            rails.Clear();         
+            rails.Clear();
+            lastUsedRail = null;
             startIndexCache.Clear();
         }
 
@@ -218,6 +219,7 @@ namespace ZExtensions
             var itemCluster = this.GetItemCluster(item);
             int index = -1;
             if (itemCluster != null)
+            
             {
                 if (startIndexCache.ContainsKey(itemCluster))
                 {
@@ -423,13 +425,13 @@ namespace ZExtensions
 
         private Rail GetFastestRail(int index)
         {
-            if (rails.Count == 0)
+            var totalRails = (int) Math.Ceiling(((decimal) this.Count / 5000));
+            if (rails.Count < totalRails)
             {
-                int totalRails = (int) Math.Ceiling(((decimal) this.Count / 5000));
-                for (int i = 0; i < totalRails; i++)
-                {
-                    rails.Add(new Rail(first, last, count));                    
-                }
+                rails.Add(new Rail(first, last, count));
+            }
+            if (lastUsedRail == null)
+            {
                 lastUsedRail = rails[0];
             }
 
@@ -510,6 +512,7 @@ namespace ZExtensions
             public void MoveToIndex(int index)
             {
                 this.MoveToClosestPosition(index);
+                
                 var clusterStartIndex = ClusterStartIndex;
                 var cluster = Cluster;
                 int lastItemIndex = clusterStartIndex + cluster.ItemsCount - 1;
