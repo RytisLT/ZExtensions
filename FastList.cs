@@ -236,6 +236,11 @@ namespace ZExtensions
             }
             int clusterStartIndex;
             var cluster = this.GetClusterOfIndex(index, out clusterStartIndex);
+            if (index == clusterStartIndex && cluster.Previous != null && !cluster.Previous.IsFull)
+            {
+                cluster = cluster.Previous;
+                clusterStartIndex -= cluster.ItemsCount;
+            }
             int clusterIndex = index - clusterStartIndex;
             if (!cluster.IsFull)
             {
@@ -484,33 +489,41 @@ namespace ZExtensions
                 this.Cluster = cluster;
                 this.ClusterStartIndex = clusterStartIndex;
             }
-            
+
             public int ClusterStartIndex { get; private set; }
-            
+
             public Cluster Cluster { get; private set; }
-            
+
             public void MoveToIndex(int index)
             {
                 this.MoveToClosestPosition(index);
-                int lastItemIndex = ClusterStartIndex + Cluster.ItemsCount - 1;
-                while (ClusterStartIndex > index && lastItemIndex > index)
+                var clusterStartIndex = ClusterStartIndex;
+                var cluster = Cluster;
+                int lastItemIndex = clusterStartIndex + cluster.ItemsCount - 1;
+                while (clusterStartIndex > index && lastItemIndex > index)
                 {
-                    Cluster = Cluster.Previous;
-                    ClusterStartIndex = ClusterStartIndex - Cluster.ItemsCount;
-                    lastItemIndex = ClusterStartIndex + Cluster.ItemsCount - 1;
+                    cluster = cluster.Previous;
+                    clusterStartIndex = clusterStartIndex - cluster.ItemsCount;
+                    lastItemIndex = clusterStartIndex + cluster.ItemsCount - 1;
                 }
 
                 while (index > lastItemIndex)
                 {
-                    ClusterStartIndex += Cluster.ItemsCount;
-                    Cluster = Cluster.Next;
-                    lastItemIndex = ClusterStartIndex + Cluster.ItemsCount - 1;
+                    clusterStartIndex += cluster.ItemsCount;
+                    cluster = cluster.Next;
+                    lastItemIndex = clusterStartIndex + cluster.ItemsCount - 1;
                 }
+                Cluster = cluster;
+                ClusterStartIndex = clusterStartIndex;
             }
 
             private void MoveToClosestPosition(int index)
             {
-                int distance = Math.Abs(ClusterStartIndex - index);
+                int distance = ClusterStartIndex - index;
+                if (distance < 0)
+                {
+                    distance *= -1;
+                }
                 int endDistance = totalCount - index;
                 if (index < distance && index < endDistance)
                 {
