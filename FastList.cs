@@ -15,6 +15,8 @@ namespace ZExtensions
         private readonly List<Dictionary<int, Cluster>> lookupTables =
             new List<Dictionary<int, Cluster>>();
 
+        private readonly Dictionary<Cluster, int> startIndexCache = new Dictionary<Cluster, int>();
+
         private readonly List<Rail> rails = new List<Rail>();
         private Rail lastUsedRail;
 
@@ -96,6 +98,7 @@ namespace ZExtensions
         private void ClearCache()
         {
             rails.Clear();         
+            startIndexCache.Clear();
         }
 
         public int IndexOf(object value)
@@ -216,14 +219,24 @@ namespace ZExtensions
             int index = -1;
             if (itemCluster != null)
             {
-                index = 0;
-                var currentCluster = first;
-                while (currentCluster != itemCluster)
+                if (startIndexCache.ContainsKey(itemCluster))
                 {
-                    index += currentCluster.ItemsCount;
-                    currentCluster = currentCluster.Next;
+                    index = startIndexCache[itemCluster] + itemCluster.IndexOf(item);
                 }
-                index += itemCluster.IndexOf(item);
+                else
+                {
+                    var startIndex  = 0;
+                    var currentCluster = first;
+                    while (currentCluster != itemCluster)
+                    {
+                        if (!startIndexCache.ContainsKey(currentCluster))
+                        {
+                            startIndexCache.Add(currentCluster, startIndex);
+                        }
+                        startIndex += currentCluster.ItemsCount;
+                        currentCluster = currentCluster.Next;                        
+                    }                    
+                }
             }
             return index;
         }
