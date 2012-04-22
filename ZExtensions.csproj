@@ -70,6 +70,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CommandLineArgumentsParser.cs" />
+    <Compile Include="DataVirtualization\AsyncVirtualizingCollection.cs" />
+    <Compile Include="DataVirtualization\DataPage.cs" />
+    <Compile Include="DataVirtualization\DataWrapper.cs" />
+    <Compile Include="DataVirtualization\IItemsProvider.cs" />
+    <Compile Include="DataVirtualization\VirtualizingCollection.cs" />
     <Compile Include="FastList.cs" />
     <Compile Include="LambdaHelper.cs" />
     <Compile Include="ListExtensions.cs" />
