@@ -112,7 +112,7 @@ namespace ZExtensions
         {
             if (minValue >= maxValue)
             {
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(string.Format("minValue:{0}, maxValue:{1}", minValue, maxValue));
             }
 
             return (uint)(this.GenerateUInt() / ((double)uint.MaxValue / (maxValue - minValue)) + minValue);
@@ -129,7 +129,7 @@ namespace ZExtensions
             {
                 if (maxValue < 0)
                 {
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(string.Format(" maxValue:{0}", maxValue));
                 }
 
                 return 0;
@@ -142,7 +142,7 @@ namespace ZExtensions
         {
             if (maxValue < minValue)
             {
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(string.Format("minValue:{0}, maxValue:{1}", minValue, maxValue));
             }
             else if (maxValue == minValue)
             {
@@ -160,7 +160,7 @@ namespace ZExtensions
 
             if (buffer == null)
             {
-                throw new ArgumentNullException();
+                throw new ArgumentNullException("buffer");
             }
 
             for (int idx = 0; idx < bufLen; ++idx)

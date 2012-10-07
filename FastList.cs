@@ -245,10 +245,7 @@ namespace ZExtensions
 
         public void Insert(int index, T item)
         {
-            if (index >= this.Count)
-            {
-                throw new ArgumentOutOfRangeException();
-            }
+            this.RangeCheck(index);
             int clusterStartIndex;
             var cluster = this.GetClusterOfIndex(index, out clusterStartIndex);
             if (index == clusterStartIndex && cluster.Previous != null && !cluster.Previous.IsFull)
@@ -303,6 +300,19 @@ namespace ZExtensions
             }
             Interlocked.Increment(ref count);
             this.ClearCache();
+        }
+
+        private void RangeCheck(int index)
+        {
+            if (index >= this.Count)
+            {
+                this.ThrowOutOfRangeException(index);
+            }
+        }
+
+        private void ThrowOutOfRangeException(int index)
+        {
+            throw new ArgumentOutOfRangeException(string.Format("size {0}, requested index {1}", this.Count, index));
         }
 
 #if DEBUG
@@ -376,10 +386,7 @@ namespace ZExtensions
         {
             get
             {
-                if (index >= this.Count)
-                {
-                    throw new ArgumentOutOfRangeException();
-                }
+                this.RangeCheck(index);                
                 int clusterStartIndex;
                 var cluster = this.GetClusterOfIndex(index, out clusterStartIndex);
                 int clusterIndex = index - clusterStartIndex;
@@ -388,10 +395,7 @@ namespace ZExtensions
             }
             set
             {
-                if (index >= this.Count)
-                {
-                    throw new ArgumentOutOfRangeException();
-                }
+                this.RangeCheck(index);
                 int clusterStartIndex;
                 var cluster = this.GetClusterOfIndex(index, out clusterStartIndex);
                 int clusterIndex = index - clusterStartIndex;
